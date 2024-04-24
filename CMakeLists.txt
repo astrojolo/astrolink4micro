@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.4.7)
+cmake_minimum_required(VERSION 2.8.12)
 PROJECT(indi-astrolink4micro CXX C)
 
 set (VERSION_MAJOR 0)
@@ -15,7 +15,7 @@ include_directories( ${CMAKE_CURRENT_BINARY_DIR})
 include_directories( ${CMAKE_CURRENT_SOURCE_DIR})
 include_directories( ${INDI_INCLUDE_DIR})
 
-################ AstroLink4 max ################
+################ AstroLink4 micro ################
 
 set(indi_astrolink4micro_SRCS
         ${CMAKE_CURRENT_SOURCE_DIR}/indi_astrolink4micro.cpp
