@@ -1,1 +1,0 @@
-/usr/bin/c++ -std=c++0x  -rdynamic CMakeFiles/indi_astrolink4micro.dir/indi_astrolink4micro.cpp.o -o indi_astrolink4micro  -lindidriver 
