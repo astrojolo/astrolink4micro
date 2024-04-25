@@ -163,7 +163,7 @@ bool AstroLink4micro::updateProperties()
 bool AstroLink4micro::ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n)
 {
 	// first we check if it's for our device
-	if (!strcmp(dev, getDeviceName()))
+	if (dev && !strcmp(dev, getDeviceName()))
 	{
 		// handle relay labels
 		if (!strcmp(name, RelayLabelsTP.name))
@@ -187,6 +187,54 @@ bool AstroLink4micro::ISNewText(const char *dev, const char *name, char *texts[]
 	return INDI::DefaultDevice::ISNewText(dev, name, texts, names, n);
 }
 
+bool AstroLink4micro::ISNewSwitch(const char *dev, const char *name, ISState *states, char *names[], int n)
+{
+	// first we check if it's for our device
+	if (dev && !strcmp(dev, getDeviceName()))
+	{
+        char cmd[ASTROLINK4_LEN] = {0};
+        char res[ASTROLINK4_LEN] = {0};
+        
+		// handle relay 1
+		if (!strcmp(name, Switch1SP.name))
+		{
+            sprintf(cmd, "C:0:%s", (strcmp(Switch1S[S1_ON].name, names[0])) ? "0" : "1");
+            bool allOk = sendCommand(cmd, res);
+            Switch1SP.s = allOk ? IPS_BUSY : IPS_ALERT;
+            if (allOk)
+                IUUpdateSwitch(&Switch1SP, states, names, n);
+
+            IDSetSwitch(&Switch1SP, nullptr);
+            return true;            
+		}        
+		// handle relay 2
+		if (!strcmp(name, Switch2SP.name))
+		{
+            sprintf(cmd, "C:1:%s", (strcmp(Switch2S[S2_ON].name, names[0])) ? "0" : "1");
+            bool allOk = sendCommand(cmd, res);
+            Switch2SP.s = allOk ? IPS_BUSY : IPS_ALERT;
+            if (allOk)
+                IUUpdateSwitch(&Switch2SP, states, names, n);
+
+            IDSetSwitch(&Switch2SP, nullptr);
+            return true;            
+		}     
+		// handle relay 3
+		if (!strcmp(name, Switch3SP.name))
+		{
+            sprintf(cmd, "C:2:%s", (strcmp(Switch3S[S3_ON].name, names[0])) ? "0" : "1");
+            bool allOk = sendCommand(cmd, res);
+            Switch3SP.s = allOk ? IPS_BUSY : IPS_ALERT;
+            if (allOk)
+                IUUpdateSwitch(&Switch3SP, states, names, n);
+
+            IDSetSwitch(&Switch3SP, nullptr);
+            return true;            
+		}                     
+    
+    }
+    return INDI::DefaultDevice::ISNewSwitch(dev, name, states, names, n);
+}
 /**************************************************************************************
 ** Client is asking us to establish connection to the device
 ***************************************************************************************/
@@ -259,16 +307,16 @@ bool AstroLink4micro::readDevice()
 
             if (Switch1SP.s != IPS_OK || Switch2SP.s != IPS_OK || Switch3SP.s != IPS_OK)
             {
-                Switch1S[0].s = (std::stod(result[Q_OUT1]) > 0) ? ISS_ON : ISS_OFF;
-                Switch1S[1].s = (std::stod(result[Q_OUT1]) == 0) ? ISS_ON : ISS_OFF;
+                Switch1S[S1_ON].s = (std::stoi(result[Q_OUT1]) > 0) ? ISS_ON : ISS_OFF;
+                Switch1S[S1_OFF].s = (std::stoi(result[Q_OUT1]) == 0) ? ISS_ON : ISS_OFF;
                 Switch1SP.s = IPS_OK;
                 IDSetSwitch(&Switch1SP, nullptr);
-                Switch2S[0].s = (std::stod(result[Q_OUT2]) > 0) ? ISS_ON : ISS_OFF;
-                Switch2S[1].s = (std::stod(result[Q_OUT2]) == 0) ? ISS_ON : ISS_OFF;
+                Switch2S[S2_ON].s = (std::stoi(result[Q_OUT2]) > 0) ? ISS_ON : ISS_OFF;
+                Switch2S[S2_OFF].s = (std::stoi(result[Q_OUT2]) == 0) ? ISS_ON : ISS_OFF;
                 Switch2SP.s = IPS_OK;
                 IDSetSwitch(&Switch2SP, nullptr);
-                Switch3S[0].s = (std::stod(result[Q_OUT3]) > 0) ? ISS_ON : ISS_OFF;
-                Switch3S[1].s = (std::stod(result[Q_OUT3]) == 0) ? ISS_ON : ISS_OFF;
+                Switch3S[S3_ON].s = (std::stoi(result[Q_OUT3]) > 0) ? ISS_ON : ISS_OFF;
+                Switch3S[S3_OFF].s = (std::stoi(result[Q_OUT3]) == 0) ? ISS_ON : ISS_OFF;
                 Switch3SP.s = IPS_OK;
                 IDSetSwitch(&Switch3SP, nullptr);
             }
@@ -299,6 +347,7 @@ bool AstroLink4micro::sendCommand(const char *cmd, char *res)
     tcflush(PortFD, TCIOFLUSH);
     sprintf(command, "%s\n", cmd);
     DEBUGF(INDI::Logger::DBG_DEBUG, "CMD %s", cmd);
+    //~ DEBUGF(INDI::Logger::DBG_SESSION, "CMD %s", cmd);
     if ((tty_rc = tty_write_string(PortFD, command, &nbytes_written)) != TTY_OK)
         return false;
 
@@ -314,6 +363,7 @@ bool AstroLink4micro::sendCommand(const char *cmd, char *res)
     tcflush(PortFD, TCIOFLUSH);
     res[nbytes_read - 1] = '\0';
     DEBUGF(INDI::Logger::DBG_DEBUG, "RES %s", res);
+    //~ DEBUGF(INDI::Logger::DBG_SESSION, "RES %s", res);
     if (tty_rc != TTY_OK)
     {
         char errorMessage[MAXRBUF];
