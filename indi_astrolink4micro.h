@@ -134,16 +134,37 @@ class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterfac
             POW_WH
         };        
         
-        ISwitch Power1S[2];
-        ISwitchVectorProperty Power1SP;
-        ISwitch Power2S[2];
-        ISwitchVectorProperty Power2SP;
-        ISwitch Power3S[2];
-        ISwitchVectorProperty Power3SP;
-        INumber PWMN[2];
-        INumberVectorProperty PWMNP;
-        ISwitch PowerDefaultOnS[3];
-        ISwitchVectorProperty PowerDefaultOnSP;        
+        IText RelayLabelsT[5];
+        ITextVectorProperty RelayLabelsTP;
+        enum
+        {
+            LAB_OUT1, LAB_OUT2,LAB_OUT3,LAB_PWM1,LAB_PWM2
+        };
+
+        ISwitch Switch1S[2];
+        ISwitchVectorProperty Switch1SP;
+        enum
+        {
+            S1_ON,S1_OFF
+        };
+        ISwitch Switch2S[2];
+        ISwitchVectorProperty Switch2SP;
+        enum
+        {
+            S2_ON,S2_OFF
+        };
+        ISwitch Switch3S[2];
+        ISwitchVectorProperty Switch3SP;
+        enum
+        {
+            S3_ON,S3_OFF
+        };
+
+        INumber PWM1N[1];
+        INumberVectorProperty PWM1NP;
+        INumber PWM2N[1];
+        INumberVectorProperty PWM2NP;
+   
         
         static constexpr const char *SETTINGS_TAB{"Settings"};
         static constexpr const char *POWER_TAB{"Power"};

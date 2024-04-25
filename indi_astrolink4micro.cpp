@@ -66,28 +66,6 @@ bool AstroLink4micro::initProperties()
     });
     registerConnection(serialConnection);
     
-    // Power lines
-    IUFillSwitch(&Power1S[0], "PWR1BTN_ON", "ON", ISS_OFF);
-    IUFillSwitch(&Power1S[1], "PWR1BTN_OFF", "OFF", ISS_ON);
-    IUFillSwitchVector(&Power1SP, Power1S, 2, getDeviceName(), "DC1", "Port 1", POWER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
-
-    IUFillSwitch(&Power2S[0], "PWR2BTN_ON", "ON", ISS_OFF);
-    IUFillSwitch(&Power2S[1], "PWR2BTN_OFF", "OFF", ISS_ON);
-    IUFillSwitchVector(&Power2SP, Power2S, 2, getDeviceName(), "DC2", "Port 2", POWER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
-
-    IUFillSwitch(&Power3S[0], "PWR3BTN_ON", "ON", ISS_OFF);
-    IUFillSwitch(&Power3S[1], "PWR3BTN_OFF", "OFF", ISS_ON);
-    IUFillSwitchVector(&Power3SP, Power3S, 2, getDeviceName(), "DC3", "Port 3", POWER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
-
-    IUFillNumber(&PWMN[0], "PWM1_VAL", "A", "%3.0f", 0, 100, 10, 0);
-    IUFillNumber(&PWMN[1], "PWM2_VAL", "B", "%3.0f", 0, 100, 10, 0);
-    IUFillNumberVector(&PWMNP, PWMN, 2, getDeviceName(), "PWM", "PWM", POWER_TAB, IP_RW, 60, IPS_IDLE);
-
-    IUFillSwitch(&PowerDefaultOnS[0], "POW_DEF_ON1", "DC1", ISS_OFF);
-    IUFillSwitch(&PowerDefaultOnS[1], "POW_DEF_ON2", "DC2", ISS_OFF);
-    IUFillSwitch(&PowerDefaultOnS[2], "POW_DEF_ON3", "DC3", ISS_OFF);
-    IUFillSwitchVector(&PowerDefaultOnSP, PowerDefaultOnS, 3, getDeviceName(), "POW_DEF_ON", "Power default ON", POWER_TAB, IP_RW, ISR_NOFMANY, 60, IPS_IDLE);    
-    
     // focuser settings
     IUFillNumber(&Focuser1SettingsN[FS1_SPEED], "FS1_SPEED", "Speed [pps]", "%.0f", 10, 200, 1, 100);
     IUFillNumber(&Focuser1SettingsN[FS1_CURRENT], "FS1_CURRENT", "Current [mA]", "%.0f", 100, 2000, 100, 400);
@@ -109,6 +87,36 @@ bool AstroLink4micro::initProperties()
     IUFillNumber(&PowerDataN[POW_WH], "WH", "Energy consumed [Wh]", "%.1f", 0, 10000, 10, 0);
     IUFillNumberVector(&PowerDataNP, PowerDataN, 4, getDeviceName(), "POWER_DATA", "Power data", POWER_TAB, IP_RO, 60, IPS_IDLE);
     
+	IUFillText(&RelayLabelsT[LAB_OUT1], "LAB_OUT1", "OUT 1", "OUT 1");
+	IUFillText(&RelayLabelsT[LAB_OUT2], "LAB_OUT2", "OUT 2", "OUT 2");
+	IUFillText(&RelayLabelsT[LAB_OUT3], "LAB_OUT3", "OUT 3", "OUT 3");
+	IUFillText(&RelayLabelsT[LAB_PWM1], "LAB_PWM1", "PWM 1", "PWM 1");
+	IUFillText(&RelayLabelsT[LAB_PWM2], "LAB_PWM2", "PWM 2", "PWM 2");
+	IUFillTextVector(&RelayLabelsTP, RelayLabelsT, 5, getDeviceName(), "RELAYLABELS", "Relay Labels", OPTIONS_TAB, IP_RW, 60, IPS_IDLE);    
+    
+	// Load options before connecting
+	// load config before defining switches
+	defineProperty(&RelayLabelsTP);
+	//~ loadConfig();
+        
+	IUFillSwitch(&Switch1S[S1_ON], "S1_ON", "ON", ISS_OFF);
+	IUFillSwitch(&Switch1S[S1_OFF], "S1_OFF", "OFF", ISS_ON);
+	IUFillSwitchVector(&Switch1SP, Switch1S, 2, getDeviceName(), "SWITCH_1", RelayLabelsT[LAB_OUT1].text, POWER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+
+	IUFillSwitch(&Switch2S[S2_ON], "S2_ON", "ON", ISS_OFF);
+	IUFillSwitch(&Switch2S[S2_OFF], "S2_OFF", "OFF", ISS_ON);
+	IUFillSwitchVector(&Switch2SP, Switch2S, 2, getDeviceName(), "SWITCH_2", RelayLabelsT[LAB_OUT2].text, POWER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+
+	IUFillSwitch(&Switch3S[S3_ON], "S3_ON", "ON", ISS_OFF);
+	IUFillSwitch(&Switch3S[S3_OFF], "S3_OFF", "OFF", ISS_ON);
+	IUFillSwitchVector(&Switch3SP, Switch3S, 2, getDeviceName(), "SWITCH_3", RelayLabelsT[LAB_OUT3].text, POWER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+
+	IUFillNumber(&PWM1N[0], "PWMout1", "%", "%0.0f", 0, 100, 10, 0);
+	IUFillNumberVector(&PWM1NP, PWM1N, 1, getDeviceName(), "PWMOUT1", RelayLabelsT[LAB_PWM1].text, POWER_TAB, IP_RW, 60, IPS_IDLE);
+
+	IUFillNumber(&PWM2N[0], "PWMout2", "%", "%0.0f", 0, 100, 10, 0);
+	IUFillNumberVector(&PWM2NP, PWM2N, 1, getDeviceName(), "PWMOUT2", RelayLabelsT[LAB_PWM2].text, POWER_TAB, IP_RW, 60, IPS_IDLE);    
+    
 
     return true;    
 }
@@ -124,23 +132,24 @@ bool AstroLink4micro::updateProperties()
         WI::updateProperties();
         defineProperty(&Focuser1SettingsNP);
         defineProperty(&Focuser1ModeSP);
-        defineProperty(&Power1SP);
-        defineProperty(&Power2SP);
-        defineProperty(&Power3SP);
-        defineProperty(&PWMNP);        
+		defineProperty(&PWM1NP);
+		defineProperty(&PWM2NP);  
+		defineProperty(&Switch1SP);
+		defineProperty(&Switch2SP);            
+		defineProperty(&Switch3SP);            
         defineProperty(&PowerDataNP);       
-        defineProperty(&PowerDefaultOnSP); 
     }
     else
     {
         deleteProperty(PowerDataNP.name);
         deleteProperty(Focuser1ModeSP.name);
         deleteProperty(Focuser1SettingsNP.name);
-        deleteProperty(Power1SP.name);
-        deleteProperty(Power2SP.name);
-        deleteProperty(Power3SP.name);
-        deleteProperty(PWMNP.name);      
-        deleteProperty(PowerDefaultOnSP.name); 
+		deleteProperty(Switch1SP.name);
+		deleteProperty(Switch2SP.name);
+		deleteProperty(Switch3SP.name);
+		deleteProperty(PWM1NP.name);
+		deleteProperty(PWM2NP.name);
+        deleteProperty(RelayLabelsTP.name);
         WI::updateProperties();
         FI::updateProperties();        
     }
