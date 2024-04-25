@@ -83,6 +83,7 @@ class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterfac
 
     protected:
         virtual bool initProperties() override;
+        virtual bool updateProperties() override;
      
         const char *getDefaultName() override;
         
@@ -101,6 +102,50 @@ class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterfac
         
         std::vector<std::string> split(const std::string &input, const std::string &regex);
         
+        INumber Focuser1SettingsN[6];
+        INumberVectorProperty Focuser1SettingsNP;
+        enum
+        {
+            FS1_SPEED,
+            FS1_CURRENT,
+            FS1_HOLD,
+            FS1_STEP_SIZE,
+            FS1_COMPENSATION,
+            FS1_COMP_THRESHOLD
+        };        
+        
+        ISwitch Focuser1ModeS[3];
+        ISwitchVectorProperty Focuser1ModeSP;
+        enum
+        {
+            FS1_MODE_UNI,
+            FS1_MODE_MICRO_L,
+            FS1_MODE_MICRO_H
+        };        
+        
+        INumber PowerDataN[4];
+        INumberVectorProperty PowerDataNP;
+        enum
+        {
+            POW_VIN,
+            POW_REG,
+            POW_ITOT,
+            POW_AH,
+            POW_WH
+        };        
+        
+        ISwitch Power1S[2];
+        ISwitchVectorProperty Power1SP;
+        ISwitch Power2S[2];
+        ISwitchVectorProperty Power2SP;
+        ISwitch Power3S[2];
+        ISwitchVectorProperty Power3SP;
+        INumber PWMN[2];
+        INumberVectorProperty PWMNP;
+        ISwitch PowerDefaultOnS[3];
+        ISwitchVectorProperty PowerDefaultOnSP;        
+        
+        static constexpr const char *SETTINGS_TAB{"Settings"};
         static constexpr const char *POWER_TAB{"Power"};
         static constexpr const char *ENVIRONMENT_TAB{"Environment"};        
         

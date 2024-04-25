@@ -65,8 +65,86 @@ bool AstroLink4micro::initProperties()
         return Handshake();
     });
     registerConnection(serialConnection);
+    
+    // Power lines
+    IUFillSwitch(&Power1S[0], "PWR1BTN_ON", "ON", ISS_OFF);
+    IUFillSwitch(&Power1S[1], "PWR1BTN_OFF", "OFF", ISS_ON);
+    IUFillSwitchVector(&Power1SP, Power1S, 2, getDeviceName(), "DC1", "Port 1", POWER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+
+    IUFillSwitch(&Power2S[0], "PWR2BTN_ON", "ON", ISS_OFF);
+    IUFillSwitch(&Power2S[1], "PWR2BTN_OFF", "OFF", ISS_ON);
+    IUFillSwitchVector(&Power2SP, Power2S, 2, getDeviceName(), "DC2", "Port 2", POWER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+
+    IUFillSwitch(&Power3S[0], "PWR3BTN_ON", "ON", ISS_OFF);
+    IUFillSwitch(&Power3S[1], "PWR3BTN_OFF", "OFF", ISS_ON);
+    IUFillSwitchVector(&Power3SP, Power3S, 2, getDeviceName(), "DC3", "Port 3", POWER_TAB, IP_RW, ISR_1OFMANY, 0, IPS_IDLE);
+
+    IUFillNumber(&PWMN[0], "PWM1_VAL", "A", "%3.0f", 0, 100, 10, 0);
+    IUFillNumber(&PWMN[1], "PWM2_VAL", "B", "%3.0f", 0, 100, 10, 0);
+    IUFillNumberVector(&PWMNP, PWMN, 2, getDeviceName(), "PWM", "PWM", POWER_TAB, IP_RW, 60, IPS_IDLE);
+
+    IUFillSwitch(&PowerDefaultOnS[0], "POW_DEF_ON1", "DC1", ISS_OFF);
+    IUFillSwitch(&PowerDefaultOnS[1], "POW_DEF_ON2", "DC2", ISS_OFF);
+    IUFillSwitch(&PowerDefaultOnS[2], "POW_DEF_ON3", "DC3", ISS_OFF);
+    IUFillSwitchVector(&PowerDefaultOnSP, PowerDefaultOnS, 3, getDeviceName(), "POW_DEF_ON", "Power default ON", POWER_TAB, IP_RW, ISR_NOFMANY, 60, IPS_IDLE);    
+    
+    // focuser settings
+    IUFillNumber(&Focuser1SettingsN[FS1_SPEED], "FS1_SPEED", "Speed [pps]", "%.0f", 10, 200, 1, 100);
+    IUFillNumber(&Focuser1SettingsN[FS1_CURRENT], "FS1_CURRENT", "Current [mA]", "%.0f", 100, 2000, 100, 400);
+    IUFillNumber(&Focuser1SettingsN[FS1_HOLD], "FS1_HOLD", "Hold torque [%]", "%.0f", 0, 100, 10, 0);
+    IUFillNumber(&Focuser1SettingsN[FS1_STEP_SIZE], "FS1_STEP_SIZE", "Step size [um]", "%.2f", 0, 100, 0.1, 5.0);
+    IUFillNumber(&Focuser1SettingsN[FS1_COMPENSATION], "FS1_COMPENSATION", "Compensation [steps/C]", "%.2f", -1000, 1000, 1, 0);
+    IUFillNumber(&Focuser1SettingsN[FS1_COMP_THRESHOLD], "FS1_COMP_THRESHOLD", "Compensation threshold [steps]", "%.0f", 1, 1000, 10, 10);
+    IUFillNumberVector(&Focuser1SettingsNP, Focuser1SettingsN, 6, getDeviceName(), "FOCUSER1_SETTINGS", "Focuser 1 settings", SETTINGS_TAB, IP_RW, 60, IPS_IDLE);    
+    
+    IUFillSwitch(&Focuser1ModeS[FS1_MODE_UNI], "FS1_MODE_UNI", "Unipolar", ISS_ON);
+    IUFillSwitch(&Focuser1ModeS[FS1_MODE_MICRO_L], "FS1_MODE_MICRO_L", "Microstep 1/8", ISS_OFF);
+    IUFillSwitch(&Focuser1ModeS[FS1_MODE_MICRO_H], "FS1_MODE_MICRO_H", "Microstep 1/32", ISS_OFF);
+    IUFillSwitchVector(&Focuser1ModeSP, Focuser1ModeS, 3, getDeviceName(), "FOCUSER1_MODE", "Focuser mode", SETTINGS_TAB, IP_RW, ISR_1OFMANY, 60, IPS_IDLE);    
+    
+    // Power readings
+    IUFillNumber(&PowerDataN[POW_VIN], "VIN", "Input voltage [V]", "%.1f", 0, 15, 10, 0);
+    IUFillNumber(&PowerDataN[POW_ITOT], "ITOT", "Total current [A]", "%.1f", 0, 15, 10, 0);
+    IUFillNumber(&PowerDataN[POW_AH], "AH", "Energy consumed [Ah]", "%.1f", 0, 1000, 10, 0);
+    IUFillNumber(&PowerDataN[POW_WH], "WH", "Energy consumed [Wh]", "%.1f", 0, 10000, 10, 0);
+    IUFillNumberVector(&PowerDataNP, PowerDataN, 4, getDeviceName(), "POWER_DATA", "Power data", POWER_TAB, IP_RO, 60, IPS_IDLE);
+    
 
     return true;    
+}
+
+bool AstroLink4micro::updateProperties()
+{
+    // Call parent update properties first
+    INDI::DefaultDevice::updateProperties();
+
+    if (isConnected())
+    {
+        FI::updateProperties();
+        WI::updateProperties();
+        defineProperty(&Focuser1SettingsNP);
+        defineProperty(&Focuser1ModeSP);
+        defineProperty(&Power1SP);
+        defineProperty(&Power2SP);
+        defineProperty(&Power3SP);
+        defineProperty(&PWMNP);        
+        defineProperty(&PowerDataNP);       
+        defineProperty(&PowerDefaultOnSP); 
+    }
+    else
+    {
+        deleteProperty(PowerDataNP.name);
+        deleteProperty(Focuser1ModeSP.name);
+        deleteProperty(Focuser1SettingsNP.name);
+        deleteProperty(Power1SP.name);
+        deleteProperty(Power2SP.name);
+        deleteProperty(Power3SP.name);
+        deleteProperty(PWMNP.name);      
+        deleteProperty(PowerDefaultOnSP.name); 
+        WI::updateProperties();
+        FI::updateProperties();        
+    }
+    return true;
 }
 
 /**************************************************************************************
