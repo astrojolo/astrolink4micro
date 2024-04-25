@@ -70,6 +70,7 @@
 #define Q_SBM_PRESENT 32
 #define Q_SBM 33
 
+
 namespace Connection
 {
     class Serial;
@@ -77,52 +78,32 @@ namespace Connection
 
 class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterface, public INDI::WeatherInterface
 {
-public:
-    AstroLink4micro();
+    public:
+        AstroLink4micro();
 
-    virtual bool initProperties() override;
-    virtual bool updateProperties() override;
-
-    virtual bool ISNewNumber(const char *dev, const char *name, double values[], char *names[], int n) override;
-    virtual bool ISNewSwitch(const char *dev, const char *name, ISState *states, char *names[], int n) override;
-    virtual bool ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n) override;
-    
-protected:
-    virtual const char *getDefaultName();    
-    virtual bool sendCommand(const char *cmd, char *res);
-    
-    virtual bool saveConfigItems(FILE *fp) override;
-    virtual bool loadConfig(bool silent, const char *property);
-    
-    // Weather Overrides
-    virtual IPState updateWeather() override
-    {
-        return IPS_OK;
-    }    
-
-private:
-    std::vector<std::string> lastQuery;
-    
-    virtual bool Handshake();
-    int PortFD = -1;
-    Connection::Serial *serialConnection{nullptr};
-    char stopChar{0xA}; // new line    
-    
-    std::vector<std::string> split(const std::string &input, const std::string &regex);
-    
-    INumber PowerDataN[5];
-    INumberVectorProperty PowerDataNP;
-    enum
-    {
-        POW_VIN,
-        POW_REG,
-        POW_ITOT,
-        POW_AH,
-        POW_WH
-    }; 
-
-    static constexpr const char *ENVIRONMENT_TAB{"Environment"};
-    static constexpr const char *POWER_TAB{"Power"};
+    protected:
+        virtual bool initProperties() override;
+     
+        const char *getDefaultName() override;
+        
+        // Weather Overrides
+        virtual IPState updateWeather() override
+        {
+            return IPS_OK;
+        }        
+        
+    private:
+        int PortFD { -1 };
+        Connection::Serial *serialConnection { nullptr };
+        char stopChar { 0xA };
+        bool Handshake();
+        virtual bool sendCommand(const char *cmd, char *res);
+        
+        std::vector<std::string> split(const std::string &input, const std::string &regex);
+        
+        static constexpr const char *POWER_TAB{"Power"};
+        static constexpr const char *ENVIRONMENT_TAB{"Environment"};        
+        
 };
 
 #endif
