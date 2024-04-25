@@ -19,9 +19,6 @@
 #ifndef ASTROLINK4_H
 #define ASTROLINK4_H
 
-#include <defaultdevice.h>
-#include <indifocuserinterface.h>
-#include <indiweatherinterface.h>
 #include <string>
 #include <iostream>
 #include <stdio.h>
@@ -33,6 +30,10 @@
 #include <cstring>
 #include <map>
 #include <sstream>
+
+#include <defaultdevice.h>
+#include <indifocuserinterface.h>
+#include <indiweatherinterface.h>
 
 
 #define Q_DEVICE_CODE 0
@@ -87,6 +88,9 @@ class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterfac
      
         const char *getDefaultName() override;
         
+        virtual void TimerHit();
+        virtual bool saveConfigItems(FILE *fp);
+        
         // Weather Overrides
         virtual IPState updateWeather() override
         {
@@ -99,6 +103,7 @@ class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterfac
         char stopChar { 0xA };
         bool Handshake();
         virtual bool sendCommand(const char *cmd, char *res);
+        bool readDevice();
         
         std::vector<std::string> split(const std::string &input, const std::string &regex);
         
@@ -128,7 +133,6 @@ class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterfac
         enum
         {
             POW_VIN,
-            POW_REG,
             POW_ITOT,
             POW_AH,
             POW_WH

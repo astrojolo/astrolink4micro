@@ -25,7 +25,7 @@
 #define ASTROLINK4_LEN 250
 #define ASTROLINK4_TIMEOUT 3
 
-#define POLLTIME 500
+#define POLL_PERIOD 500
 
 #include <memory>
 
@@ -82,9 +82,9 @@ bool AstroLink4micro::initProperties()
     
     // Power readings
     IUFillNumber(&PowerDataN[POW_VIN], "VIN", "Input voltage [V]", "%.1f", 0, 15, 10, 0);
-    IUFillNumber(&PowerDataN[POW_ITOT], "ITOT", "Total current [A]", "%.1f", 0, 15, 10, 0);
-    IUFillNumber(&PowerDataN[POW_AH], "AH", "Energy consumed [Ah]", "%.1f", 0, 1000, 10, 0);
-    IUFillNumber(&PowerDataN[POW_WH], "WH", "Energy consumed [Wh]", "%.1f", 0, 10000, 10, 0);
+    IUFillNumber(&PowerDataN[POW_ITOT], "ITOT", "Total current [A]", "%.2f", 0, 15, 10, 0);
+    IUFillNumber(&PowerDataN[POW_AH], "AH", "Energy consumed [Ah]", "%.2f", 0, 1000, 10, 0);
+    IUFillNumber(&PowerDataN[POW_WH], "WH", "Energy consumed [Wh]", "%.2f", 0, 10000, 10, 0);
     IUFillNumberVector(&PowerDataNP, PowerDataN, 4, getDeviceName(), "POWER_DATA", "Power data", POWER_TAB, IP_RO, 60, IPS_IDLE);
     
 	IUFillText(&RelayLabelsT[LAB_OUT1], "LAB_OUT1", "OUT 1", "OUT 1");
@@ -174,11 +174,90 @@ bool AstroLink4micro::Handshake()
         else
         {
             DEBUG(INDI::Logger::DBG_DEBUG, "Handshake success");
-            //~ SetTimer(POLLTIME);
+            SetTimer(POLL_PERIOD);
             return true;
         }
     }
     return false;
+}
+
+
+void AstroLink4micro::TimerHit()
+{
+	if (!isConnected()) 
+    {
+        SetTimer(POLL_PERIOD);
+		return;
+    }
+    readDevice();
+    SetTimer(POLL_PERIOD);
+}
+
+
+bool AstroLink4micro::readDevice()
+{
+    char res[ASTROLINK4_LEN] = {0};
+    if (sendCommand("q", res))
+    {
+        std::vector<std::string> result = split(res, ":");
+        result.erase(result.begin());
+
+        int focuserPosition = std::stoi(result[Q_FOC1_POS]);
+        int stepsToGo = std::stoi(result[Q_FOC1_TO_GO]);
+        
+        FocusAbsPosN[0].value = focuserPosition;
+        if (stepsToGo == 0)
+        {
+            FocusAbsPosNP.s = FocusRelPosNP.s = IPS_OK;
+            IDSetNumber(&FocusRelPosNP, nullptr);
+        }
+        else
+        {
+            FocusAbsPosNP.s = FocusRelPosNP.s = IPS_BUSY;
+        }
+        IDSetNumber(&FocusAbsPosNP, nullptr);
+
+        if (result.size() > 5)
+        {
+            if (std::stoi(result[Q_SENS1_PRESENT]) > 0)
+            {
+                setParameterValue("WEATHER_TEMPERATURE", std::stod(result[Q_SENS1_TEMP]));
+                setParameterValue("WEATHER_HUMIDITY", std::stod(result[Q_SENS1_HUM]));
+                setParameterValue("WEATHER_DEWPOINT", std::stod(result[Q_SENS1_DEW]));
+            }
+
+            if (Switch1SP.s != IPS_OK || Switch2SP.s != IPS_OK || Switch3SP.s != IPS_OK)
+            {
+                Switch1S[0].s = (std::stod(result[Q_OUT1]) > 0) ? ISS_ON : ISS_OFF;
+                Switch1S[1].s = (std::stod(result[Q_OUT1]) == 0) ? ISS_ON : ISS_OFF;
+                Switch1SP.s = IPS_OK;
+                IDSetSwitch(&Switch1SP, nullptr);
+                Switch2S[0].s = (std::stod(result[Q_OUT2]) > 0) ? ISS_ON : ISS_OFF;
+                Switch2S[1].s = (std::stod(result[Q_OUT2]) == 0) ? ISS_ON : ISS_OFF;
+                Switch2SP.s = IPS_OK;
+                IDSetSwitch(&Switch2SP, nullptr);
+                Switch3S[0].s = (std::stod(result[Q_OUT3]) > 0) ? ISS_ON : ISS_OFF;
+                Switch3S[1].s = (std::stod(result[Q_OUT3]) == 0) ? ISS_ON : ISS_OFF;
+                Switch3SP.s = IPS_OK;
+                IDSetSwitch(&Switch3SP, nullptr);
+            }
+
+            PWM1N[0].value = std::stod(result[Q_PWM1]);
+            PWM2N[1].value = std::stod(result[Q_PWM2]);
+            PWM1NP.s = IPS_OK;
+            IDSetNumber(&PWM1NP, nullptr);
+            PWM2NP.s = IPS_OK;
+            IDSetNumber(&PWM2NP, nullptr);
+
+            PowerDataN[POW_ITOT].value = std::stod(result[Q_ITOT]);
+            PowerDataN[POW_VIN].value = std::stod(result[Q_VIN]);
+            PowerDataN[POW_AH].value = std::stod(result[Q_AH]);
+            PowerDataN[POW_WH].value = std::stod(result[Q_WH]);
+            PowerDataNP.s = IPS_OK;
+            IDSetNumber(&PowerDataNP, nullptr);
+        }
+    }
+    return true;
 }
 
 bool AstroLink4micro::sendCommand(const char *cmd, char *res)
@@ -221,6 +300,22 @@ bool AstroLink4micro::sendCommand(const char *cmd, char *res)
 const char *AstroLink4micro::getDefaultName()
 {
     return "AstroLink 4 micro";
+}
+
+bool AstroLink4micro::saveConfigItems(FILE *fp)
+{
+	IUSaveConfigText(fp, &RelayLabelsTP);
+	IUSaveConfigSwitch(fp, &Switch1SP);
+	IUSaveConfigSwitch(fp, &Switch2SP);
+	IUSaveConfigSwitch(fp, &Switch3SP);
+	IUSaveConfigNumber(fp, &PWM1NP);
+	IUSaveConfigNumber(fp, &PWM2NP);
+
+	FI::saveConfigItems(fp);
+	WI::saveConfigItems(fp);
+    INDI::DefaultDevice::saveConfigItems(fp);
+
+	return true;
 }
 
 /**************************************************************************************
