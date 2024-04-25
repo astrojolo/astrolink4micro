@@ -85,6 +85,9 @@ class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterfac
     protected:
         virtual bool initProperties() override;
         virtual bool updateProperties() override;
+        
+        virtual bool ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n) override;
+
      
         const char *getDefaultName() override;
         

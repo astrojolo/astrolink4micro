@@ -97,7 +97,7 @@ bool AstroLink4micro::initProperties()
 	// Load options before connecting
 	// load config before defining switches
 	defineProperty(&RelayLabelsTP);
-	//~ loadConfig();
+	loadConfig();
         
 	IUFillSwitch(&Switch1S[S1_ON], "S1_ON", "ON", ISS_OFF);
 	IUFillSwitch(&Switch1S[S1_OFF], "S1_OFF", "OFF", ISS_ON);
@@ -149,11 +149,42 @@ bool AstroLink4micro::updateProperties()
 		deleteProperty(Switch3SP.name);
 		deleteProperty(PWM1NP.name);
 		deleteProperty(PWM2NP.name);
-        deleteProperty(RelayLabelsTP.name);
+        //~ deleteProperty(RelayLabelsTP.name);
         WI::updateProperties();
         FI::updateProperties();        
     }
     return true;
+}
+
+/**************************************************************************************
+** INDI properties updates
+***************************************************************************************/
+
+bool AstroLink4micro::ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n)
+{
+	// first we check if it's for our device
+	if (!strcmp(dev, getDeviceName()))
+	{
+		// handle relay labels
+		if (!strcmp(name, RelayLabelsTP.name))
+		{
+			if (isConnected())
+			{
+				DEBUG(INDI::Logger::DBG_WARNING, "Cannot set labels while device is connected.");
+				return false;
+			}
+
+			IUUpdateText(&RelayLabelsTP, texts, names, n);
+			RelayLabelsTP.s = IPS_OK;
+			IDSetText(&RelayLabelsTP, nullptr);
+			DEBUG(INDI::Logger::DBG_SESSION, "AstroLink 4 micro labels set . You need to save configuration and restart driver to activate the changes.");
+			DEBUGF(INDI::Logger::DBG_DEBUG, "AstroLink 4 micro labels set to OUT1: %s, OUT2: %s, OUT3: %s, PWM1: %s, PWM2: %s", RelayLabelsT[0].text, RelayLabelsT[1].text, RelayLabelsT[2].text, RelayLabelsT[3].text, RelayLabelsT[4].text);
+
+			return true;
+		}
+	}
+
+	return INDI::DefaultDevice::ISNewText(dev, name, texts, names, n);
 }
 
 /**************************************************************************************
@@ -305,11 +336,11 @@ const char *AstroLink4micro::getDefaultName()
 bool AstroLink4micro::saveConfigItems(FILE *fp)
 {
 	IUSaveConfigText(fp, &RelayLabelsTP);
-	IUSaveConfigSwitch(fp, &Switch1SP);
-	IUSaveConfigSwitch(fp, &Switch2SP);
-	IUSaveConfigSwitch(fp, &Switch3SP);
-	IUSaveConfigNumber(fp, &PWM1NP);
-	IUSaveConfigNumber(fp, &PWM2NP);
+	//~ IUSaveConfigSwitch(fp, &Switch1SP);
+	//~ IUSaveConfigSwitch(fp, &Switch2SP);
+	//~ IUSaveConfigSwitch(fp, &Switch3SP);
+	//~ IUSaveConfigNumber(fp, &PWM1NP);
+	//~ IUSaveConfigNumber(fp, &PWM2NP);
 
 	FI::saveConfigItems(fp);
 	WI::saveConfigItems(fp);
