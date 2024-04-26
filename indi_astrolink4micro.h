@@ -71,6 +71,47 @@
 #define Q_SBM_PRESENT 32
 #define Q_SBM 33
 
+#define U_BUZZER 1
+#define U_MANUAL 2
+#define U_FOC1_CUR 3
+#define U_FOC2_CUR 4
+#define U_FOC1_HOLD 5
+#define U_FOC2_HOLD 6
+#define U_FOC1_SPEED 7
+#define U_FOC2_SPEED 8
+#define U_FOC1_ACC 9
+#define U_FOC2_ACC 10
+#define U_FOC1_MODE 11
+#define U_FOC2_MODE 12
+#define U_FOC1_MAX 13
+#define U_FOC2_MAX 14
+#define U_FOC1_REV 15
+#define U_FOC2_REV 16
+#define U_FOC1_STEP 17
+#define U_FOC2_STEP 18
+#define U_FOC1_COMPSTEPS 19
+#define U_FOC2_COMPSTEPS 20
+#define U_FOC_COMP_CYCLE 21
+#define U_FOC1_COMPTRIGGER 22
+#define U_FOC2_COMPTRIGGER 23
+#define U_FOC1_COMPAUTO 24
+#define U_FOC2_COMPAUTO 25
+#define U_PWM_PRESC 26
+#define U_OUT1_DEF 27
+#define U_OUT2_DEF 28
+#define U_OUT3_DEF 29
+#define U_PWM1_DEF 30
+#define U_PWM2_DEF 31
+#define U_HUM_SENSOR 32
+#define U_HUM_START 33
+#define U_HUM_FULL 34
+#define U_TEMP_PRESET 35
+#define U_VREF 36
+#define U_OVERVOLTAGE 37
+#define U_OVERCURRENT 38
+#define U_OVERTIME 39
+#define U_COMPSENSOR 40
+
 
 namespace Connection
 {
@@ -86,6 +127,7 @@ class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterfac
         virtual bool initProperties() override;
         virtual bool updateProperties() override;
         
+        virtual bool ISNewNumber(const char *dev, const char *name, double values[], char *names[], int n) override;
         virtual bool ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n) override;
         virtual bool ISNewSwitch(const char *dev, const char *name, ISState *states, char *names[], int n) override;
      
@@ -109,6 +151,11 @@ class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterfac
         bool readDevice();
         
         std::vector<std::string> split(const std::string &input, const std::string &regex);
+        bool updateSettings(const char *getCom, const char *setCom, int index, const char *value);
+        bool updateSettings(const char *getCom, const char *setCom, std::map<int, std::string> values);   
+        std::string doubleToStr(double val);
+        std::string intToStr(double val);
+             
         
         INumber Focuser1SettingsN[6];
         INumberVectorProperty Focuser1SettingsNP;

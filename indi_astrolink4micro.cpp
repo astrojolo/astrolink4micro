@@ -73,7 +73,7 @@ bool AstroLink4micro::initProperties()
     IUFillNumber(&Focuser1SettingsN[FS1_STEP_SIZE], "FS1_STEP_SIZE", "Step size [um]", "%.2f", 0, 100, 0.1, 5.0);
     IUFillNumber(&Focuser1SettingsN[FS1_COMPENSATION], "FS1_COMPENSATION", "Compensation [steps/C]", "%.2f", -1000, 1000, 1, 0);
     IUFillNumber(&Focuser1SettingsN[FS1_COMP_THRESHOLD], "FS1_COMP_THRESHOLD", "Compensation threshold [steps]", "%.0f", 1, 1000, 10, 10);
-    IUFillNumberVector(&Focuser1SettingsNP, Focuser1SettingsN, 6, getDeviceName(), "FOCUSER1_SETTINGS", "Focuser 1 settings", SETTINGS_TAB, IP_RW, 60, IPS_IDLE);    
+    IUFillNumberVector(&Focuser1SettingsNP, Focuser1SettingsN, 6, getDeviceName(), "FOCUSER1_SETTINGS", "Focuser settings", SETTINGS_TAB, IP_RW, 60, IPS_IDLE);    
     
     IUFillSwitch(&Focuser1ModeS[FS1_MODE_UNI], "FS1_MODE_UNI", "Unipolar", ISS_ON);
     IUFillSwitch(&Focuser1ModeS[FS1_MODE_MICRO_L], "FS1_MODE_MICRO_L", "Microstep 1/8", ISS_OFF);
@@ -160,6 +160,74 @@ bool AstroLink4micro::updateProperties()
 ** INDI properties updates
 ***************************************************************************************/
 
+bool AstroLink4micro::ISNewNumber(const char *dev, const char *name, double values[], char *names[], int n)
+{
+    if (dev && !strcmp(dev, getDeviceName()))
+    {
+        char cmd[ASTROLINK4_LEN] = {0};
+        char res[ASTROLINK4_LEN] = {0};
+        
+        // Handle PWM
+        if (!strcmp(name, PWM1NP.name))
+        {
+            bool allOk = true;
+            if (PWM1N[0].value != values[0])
+            {
+                sprintf(cmd, "B:0:%d", static_cast<uint8_t>(values[0]));
+                allOk = allOk && sendCommand(cmd, res);
+            }
+            PWM1NP.s = (allOk) ? IPS_BUSY : IPS_ALERT;
+            if (allOk)
+                IUUpdateNumber(&PWM1NP, values, names, n);
+            IDSetNumber(&PWM1NP, nullptr);
+            return true;
+        }     
+        if (!strcmp(name, PWM2NP.name))
+        {
+            bool allOk = true;
+            if (PWM2N[0].value != values[0])
+            {
+                sprintf(cmd, "B:1:%d", static_cast<uint8_t>(values[0]));
+                allOk = allOk && sendCommand(cmd, res);
+            }
+            PWM2NP.s = (allOk) ? IPS_BUSY : IPS_ALERT;
+            if (allOk)
+                IUUpdateNumber(&PWM2NP, values, names, n);
+            IDSetNumber(&PWM2NP, nullptr);
+            return true;
+        }                
+        // Focuser settings
+        if (!strcmp(name, Focuser1SettingsNP.name))
+        {
+            bool allOk = true;
+            std::map<int, std::string> updates;
+            updates[U_FOC1_STEP] = doubleToStr(values[FS1_STEP_SIZE] * 100.0);
+            updates[U_FOC1_COMPSTEPS] = doubleToStr(values[FS1_COMPENSATION] * 100.0);
+            updates[U_FOC1_COMPTRIGGER] = doubleToStr(values[FS1_COMP_THRESHOLD]);
+            updates[U_FOC1_SPEED] = intToStr(values[FS1_SPEED]);
+            updates[U_FOC1_ACC] = intToStr(values[FS1_SPEED] * 5.0);
+            updates[U_FOC1_CUR] = intToStr(values[FS1_CURRENT] / 10.0);
+            updates[U_FOC1_HOLD] = intToStr(values[FS1_HOLD]);
+            allOk = allOk && updateSettings("u", "U", updates);
+            updates.clear();
+            if (allOk)
+            {
+                Focuser1SettingsNP.s = IPS_BUSY;
+                IUUpdateNumber(&Focuser1SettingsNP, values, names, n);
+                IDSetNumber(&Focuser1SettingsNP, nullptr);
+                DEBUGF(INDI::Logger::DBG_SESSION, "Focuser temperature compensation is %s", (values[FS1_COMPENSATION] > 0) ? "enabled" : "disabled");
+                return true;
+            }
+            Focuser1SettingsNP.s = IPS_ALERT;
+            return true;
+        }        
+        
+        if (strstr(name, "FOCUS"))
+            return FI::processNumber(dev, name, values, names, n);        
+    }
+    return INDI::DefaultDevice::ISNewNumber(dev, name, values, names, n);
+}
+
 bool AstroLink4micro::ISNewText(const char *dev, const char *name, char *texts[], char *names[], int n)
 {
 	// first we check if it's for our device
@@ -230,10 +298,62 @@ bool AstroLink4micro::ISNewSwitch(const char *dev, const char *name, ISState *st
 
             IDSetSwitch(&Switch3SP, nullptr);
             return true;            
-		}                     
+		}          
+        // Focuser Mode
+        if (!strcmp(name, Focuser1ModeSP.name))
+        {
+            std::string value = "0";
+            if (!strcmp(Focuser1ModeS[FS1_MODE_UNI].name, names[0]))
+                value = "0";
+            if (!strcmp(Focuser1ModeS[FS1_MODE_MICRO_L].name, names[0]))
+                value = "1";
+            if (!strcmp(Focuser1ModeS[FS1_MODE_MICRO_H].name, names[0]))
+                value = "2";
+            if (updateSettings("u", "U", U_FOC1_MODE, value.c_str()))
+            {
+                Focuser1ModeSP.s = IPS_BUSY;
+                IUUpdateSwitch(&Focuser1ModeSP, states, names, n);
+                IDSetSwitch(&Focuser1ModeSP, nullptr);
+                return true;
+            }
+            Focuser1ModeSP.s = IPS_ALERT;
+            return true;
+        }                   
     
     }
     return INDI::DefaultDevice::ISNewSwitch(dev, name, states, names, n);
+}
+
+bool AstroLink4micro::updateSettings(const char *getCom, const char *setCom, int index, const char *value)
+{
+    std::map<int, std::string> values;
+    values[index] = value;
+    return updateSettings(getCom, setCom, values);
+}
+
+bool AstroLink4micro::updateSettings(const char *getCom, const char *setCom, std::map<int, std::string> values)
+{
+    char cmd[ASTROLINK4_LEN] = {0}, res[ASTROLINK4_LEN] = {0};
+    snprintf(cmd, ASTROLINK4_LEN, "%s", getCom);
+    if (sendCommand(cmd, res))
+    {
+        std::string concatSettings = "";
+        std::vector<std::string> result = split(res, ":");
+        if (result.size() >= values.size())
+        {
+            result[0] = setCom;
+            for (std::map<int, std::string>::iterator it = values.begin(); it != values.end(); ++it)
+                result[it->first] = it->second;
+
+            for (const auto &piece : result)
+                concatSettings += piece + ":";
+
+            snprintf(cmd, ASTROLINK4_LEN, "%s", concatSettings.c_str());
+            if (sendCommand(cmd, res))
+                return true;
+        }
+    }
+    return false;
 }
 /**************************************************************************************
 ** Client is asking us to establish connection to the device
@@ -336,6 +456,66 @@ bool AstroLink4micro::readDevice()
             IDSetNumber(&PowerDataNP, nullptr);
         }
     }
+    
+    // update settings data if was changed
+    if (FocusMaxPosNP.s != IPS_OK || FocusReverseSP.s != IPS_OK || Focuser1SettingsNP.s != IPS_OK || Focuser1ModeSP.s != IPS_OK)
+    {
+        if (sendCommand("u", res))
+        {
+            std::vector<std::string> result = split(res, ":");
+
+            //~ if (PowerDefaultOnSP.s != IPS_OK)
+            //~ {
+                //~ PowerDefaultOnS[0].s = (std::stod(result[U_OUT1_DEF]) > 0) ? ISS_ON : ISS_OFF;
+                //~ PowerDefaultOnS[1].s = (std::stod(result[U_OUT2_DEF]) > 0) ? ISS_ON : ISS_OFF;
+                //~ PowerDefaultOnS[2].s = (std::stod(result[U_OUT3_DEF]) > 0) ? ISS_ON : ISS_OFF;
+                //~ PowerDefaultOnSP.s = IPS_OK;
+                //~ IDSetSwitch(&PowerDefaultOnSP, nullptr);
+            //~ }
+
+            if (Focuser1SettingsNP.s != IPS_OK)
+            {
+
+                DEBUGF(INDI::Logger::DBG_DEBUG, "Update settings, focuser 1, res %s", res);
+                Focuser1SettingsN[FS1_STEP_SIZE].value = std::stod(result[U_FOC1_STEP]) / 100.0;
+                Focuser1SettingsN[FS1_COMPENSATION].value = std::stod(result[U_FOC1_COMPSTEPS]) / 100.0;
+                Focuser1SettingsN[FS1_COMP_THRESHOLD].value = std::stod(result[U_FOC1_COMPTRIGGER]);
+                Focuser1SettingsN[FS1_SPEED].value = std::stod(result[U_FOC1_SPEED]);
+                Focuser1SettingsN[FS1_CURRENT].value = std::stod(result[U_FOC1_CUR]) * 10.0;
+                Focuser1SettingsN[FS1_HOLD].value = std::stod(result[U_FOC1_HOLD]);
+                Focuser1SettingsNP.s = IPS_OK;
+                IDSetNumber(&Focuser1SettingsNP, nullptr);
+            }
+
+            if (Focuser1ModeSP.s != IPS_OK)
+            {
+                Focuser1ModeS[FS1_MODE_UNI].s = Focuser1ModeS[FS1_MODE_MICRO_L].s = Focuser1ModeS[FS1_MODE_MICRO_H].s = ISS_OFF;
+                if (!strcmp("0", result[U_FOC1_MODE].c_str()))
+                    Focuser1ModeS[FS1_MODE_UNI].s = ISS_ON;
+                if (!strcmp("1", result[U_FOC1_MODE].c_str()))
+                    Focuser1ModeS[FS1_MODE_MICRO_L].s = ISS_ON;
+                if (!strcmp("2", result[U_FOC1_MODE].c_str()))
+                    Focuser1ModeS[FS1_MODE_MICRO_H].s = ISS_ON;
+                Focuser1ModeSP.s = IPS_OK;
+                IDSetSwitch(&Focuser1ModeSP, nullptr);
+            }
+
+            if (FocusMaxPosNP.s != IPS_OK)
+            {
+                FocusMaxPosN[0].value = std::stoi(result[U_FOC1_MAX]);
+                FocusMaxPosNP.s = IPS_OK;
+                IDSetNumber(&FocusMaxPosNP, nullptr);
+            }
+            if (FocusReverseSP.s != IPS_OK)
+            {
+                FocusReverseS[0].s = (std::stoi(result[U_FOC1_REV]) > 0) ? ISS_ON : ISS_OFF;
+                FocusReverseS[1].s = (std::stoi(result[U_FOC1_REV]) == 0) ? ISS_ON : ISS_OFF;
+                FocusReverseSP.s = IPS_OK;
+                IDSetSwitch(&FocusReverseSP, nullptr);
+            }
+        }
+    }
+        
     return true;
 }
 
@@ -347,7 +527,6 @@ bool AstroLink4micro::sendCommand(const char *cmd, char *res)
     tcflush(PortFD, TCIOFLUSH);
     sprintf(command, "%s\n", cmd);
     DEBUGF(INDI::Logger::DBG_DEBUG, "CMD %s", cmd);
-    //~ DEBUGF(INDI::Logger::DBG_SESSION, "CMD %s", cmd);
     if ((tty_rc = tty_write_string(PortFD, command, &nbytes_written)) != TTY_OK)
         return false;
 
@@ -363,7 +542,6 @@ bool AstroLink4micro::sendCommand(const char *cmd, char *res)
     tcflush(PortFD, TCIOFLUSH);
     res[nbytes_read - 1] = '\0';
     DEBUGF(INDI::Logger::DBG_DEBUG, "RES %s", res);
-    //~ DEBUGF(INDI::Logger::DBG_SESSION, "RES %s", res);
     if (tty_rc != TTY_OK)
     {
         char errorMessage[MAXRBUF];
@@ -404,10 +582,23 @@ bool AstroLink4micro::saveConfigItems(FILE *fp)
 ***************************************************************************************/
 std::vector<std::string> AstroLink4micro::split(const std::string &input, const std::string &regex)
 {
-    // passing -1 as the submatch index parameter performs splitting
     std::regex re(regex);
     std::sregex_token_iterator
         first{input.begin(), input.end(), re, -1},
         last;
     return {first, last};
+}
+
+std::string AstroLink4micro::doubleToStr(double val)
+{
+    char buf[10];
+    sprintf(buf, "%.0f", val);
+    return std::string(buf);
+}
+
+std::string AstroLink4micro::intToStr(double val)
+{
+    char buf[10];
+    sprintf(buf, "%i", (int)val);
+    return std::string(buf);
 }
