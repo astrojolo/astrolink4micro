@@ -228,8 +228,10 @@ bool AstroLink4micro::ISNewNumber(const char *dev, const char *name, double valu
             return true;
         }        
         
-        if (strstr(name, "FOCUS"))
-            return FI::processNumber(dev, name, values, names, n);        
+        if (strstr(name, "FOCUS_"))
+            return FI::processNumber(dev, name, values, names, n);
+        if (strstr(name, "WEATHER_"))
+            return WI::processNumber(dev, name, values, names, n);                 
     }
     return INDI::DefaultDevice::ISNewNumber(dev, name, values, names, n);
 }
@@ -325,8 +327,10 @@ bool AstroLink4micro::ISNewSwitch(const char *dev, const char *name, ISState *st
             Focuser1ModeSP.s = IPS_ALERT;
             return true;
         }                   
-        if (strstr(name, "FOCUS")) 
-        return FI::processSwitch(dev, name, states, names, n);
+        if (strstr(name, "FOCUS_")) 
+            return FI::processSwitch(dev, name, states, names, n);
+        if (strstr(name, "WEATHER_")) 
+            return WI::processSwitch(dev, name, states, names, n);
     }
     return INDI::DefaultDevice::ISNewSwitch(dev, name, states, names, n);
 }
@@ -430,7 +434,6 @@ bool AstroLink4micro::readDevice()
                 setParameterValue("WEATHER_TEMPERATURE", std::stod(result[Q_SENS1_TEMP]));
                 setParameterValue("WEATHER_HUMIDITY", std::stod(result[Q_SENS1_HUM]));
                 setParameterValue("WEATHER_DEWPOINT", std::stod(result[Q_SENS1_DEW]));
-                WI::checkWeatherUpdate();
             }
 
             if (Switch1SP.s != IPS_OK || Switch2SP.s != IPS_OK || Switch3SP.s != IPS_OK)
@@ -471,15 +474,6 @@ bool AstroLink4micro::readDevice()
         if (sendCommand("u", res))
         {
             std::vector<std::string> result = split(res, ":");
-
-            //~ if (PowerDefaultOnSP.s != IPS_OK)
-            //~ {
-                //~ PowerDefaultOnS[0].s = (std::stod(result[U_OUT1_DEF]) > 0) ? ISS_ON : ISS_OFF;
-                //~ PowerDefaultOnS[1].s = (std::stod(result[U_OUT2_DEF]) > 0) ? ISS_ON : ISS_OFF;
-                //~ PowerDefaultOnS[2].s = (std::stod(result[U_OUT3_DEF]) > 0) ? ISS_ON : ISS_OFF;
-                //~ PowerDefaultOnSP.s = IPS_OK;
-                //~ IDSetSwitch(&PowerDefaultOnSP, nullptr);
-            //~ }
 
             if (Focuser1SettingsNP.s != IPS_OK)
             {
@@ -579,7 +573,6 @@ IPState AstroLink4micro::MoveRelFocuser(FocusDirection dir, uint32_t ticks)
 bool AstroLink4micro::AbortFocuser()
 {
     char res[ASTROLINK4_LEN] = {0};
-    DEBUGF(INDI::Logger::DBG_SESSION, "Abort %s", "1");
     return (sendCommand("H", res));
 }
 
