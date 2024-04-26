@@ -51,8 +51,7 @@ bool AstroLink4micro::initProperties()
                       FOCUSER_CAN_REL_MOVE |
                       FOCUSER_CAN_REVERSE  |
                       FOCUSER_CAN_SYNC     |
-                      FOCUSER_CAN_ABORT    |
-                      FOCUSER_HAS_BACKLASH);
+                      FOCUSER_CAN_ABORT);
 
     FI::initProperties(FOCUS_TAB);
     WI::initProperties(ENVIRONMENT_TAB, ENVIRONMENT_TAB);
@@ -65,6 +64,9 @@ bool AstroLink4micro::initProperties()
         return Handshake();
     });
     registerConnection(serialConnection);
+    
+    serialConnection->setDefaultPort("/dev/ttyUSB0");
+    serialConnection->setDefaultBaudRate(serialConnection->B_38400);
     
     // focuser settings
     IUFillNumber(&Focuser1SettingsN[FS1_SPEED], "FS1_SPEED", "Speed [pps]", "%.0f", 10, 200, 1, 100);
@@ -117,6 +119,10 @@ bool AstroLink4micro::initProperties()
 	IUFillNumber(&PWM2N[0], "PWMout2", "%", "%0.0f", 0, 100, 10, 0);
 	IUFillNumberVector(&PWM2NP, PWM2N, 1, getDeviceName(), "PWMOUT2", RelayLabelsT[LAB_PWM2].text, POWER_TAB, IP_RW, 60, IPS_IDLE);    
     
+    // Environment Group
+    addParameter("WEATHER_TEMPERATURE", "Temperature (C)", -15, 35, 15);
+    addParameter("WEATHER_HUMIDITY", "Humidity %", 0, 100, 15);
+    addParameter("WEATHER_DEWPOINT", "Dew Point (C)", 0, 100, 15);    
 
     return true;    
 }
@@ -319,7 +325,8 @@ bool AstroLink4micro::ISNewSwitch(const char *dev, const char *name, ISState *st
             Focuser1ModeSP.s = IPS_ALERT;
             return true;
         }                   
-    
+        if (strstr(name, "FOCUS")) 
+        return FI::processSwitch(dev, name, states, names, n);
     }
     return INDI::DefaultDevice::ISNewSwitch(dev, name, states, names, n);
 }
@@ -423,6 +430,7 @@ bool AstroLink4micro::readDevice()
                 setParameterValue("WEATHER_TEMPERATURE", std::stod(result[Q_SENS1_TEMP]));
                 setParameterValue("WEATHER_HUMIDITY", std::stod(result[Q_SENS1_HUM]));
                 setParameterValue("WEATHER_DEWPOINT", std::stod(result[Q_SENS1_DEW]));
+                WI::checkWeatherUpdate();
             }
 
             if (Switch1SP.s != IPS_OK || Switch2SP.s != IPS_OK || Switch3SP.s != IPS_OK)
@@ -526,7 +534,7 @@ bool AstroLink4micro::sendCommand(const char *cmd, char *res)
     
     tcflush(PortFD, TCIOFLUSH);
     sprintf(command, "%s\n", cmd);
-    DEBUGF(INDI::Logger::DBG_DEBUG, "CMD %s", cmd);
+    //~ DEBUGF(INDI::Logger::DBG_SESSION, "CMD %s", cmd);
     if ((tty_rc = tty_write_string(PortFD, command, &nbytes_written)) != TTY_OK)
         return false;
 
@@ -541,7 +549,7 @@ bool AstroLink4micro::sendCommand(const char *cmd, char *res)
 
     tcflush(PortFD, TCIOFLUSH);
     res[nbytes_read - 1] = '\0';
-    DEBUGF(INDI::Logger::DBG_DEBUG, "RES %s", res);
+    //~ DEBUGF(INDI::Logger::DBG_SESSION, "RES %s", res);
     if (tty_rc != TTY_OK)
     {
         char errorMessage[MAXRBUF];
@@ -551,6 +559,69 @@ bool AstroLink4micro::sendCommand(const char *cmd, char *res)
     }
             
     return (cmd[0] == res[0]);
+}
+
+/**************************************************************************************
+** Focuser interface
+***************************************************************************************/
+IPState AstroLink4micro::MoveAbsFocuser(uint32_t targetTicks)
+{
+    char cmd[ASTROLINK4_LEN] = {0}, res[ASTROLINK4_LEN] = {0};
+    snprintf(cmd, ASTROLINK4_LEN, "R:%i:%u", 0, targetTicks);
+    return (sendCommand(cmd, res)) ? IPS_BUSY : IPS_ALERT;
+}
+
+IPState AstroLink4micro::MoveRelFocuser(FocusDirection dir, uint32_t ticks)
+{
+    return MoveAbsFocuser(dir == FOCUS_INWARD ? FocusAbsPosN[0].value - ticks : FocusAbsPosN[0].value + ticks);
+}
+
+bool AstroLink4micro::AbortFocuser()
+{
+    char res[ASTROLINK4_LEN] = {0};
+    DEBUGF(INDI::Logger::DBG_SESSION, "Abort %s", "1");
+    return (sendCommand("H", res));
+}
+
+bool AstroLink4micro::ReverseFocuser(bool enabled)
+{
+    if (updateSettings("u", "U", U_FOC1_REV, (enabled) ? "1" : "0"))
+    {
+        FocusReverseSP.s = IPS_BUSY;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool AstroLink4micro::SyncFocuser(uint32_t ticks)
+{
+    char cmd[ASTROLINK4_LEN] = {0}, res[ASTROLINK4_LEN] = {0};
+    snprintf(cmd, ASTROLINK4_LEN, "P:%i:%u", 0, ticks);
+    if (sendCommand(cmd, res))
+    {
+        FocusAbsPosNP.s = IPS_BUSY;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
+bool AstroLink4micro::SetFocuserMaxPosition(uint32_t ticks)
+{
+    if (updateSettings("u", "U", U_FOC1_MAX, std::to_string(ticks).c_str()))
+    {
+        FocusMaxPosNP.s = IPS_BUSY;
+        return true;
+    }
+    else
+    {
+        return false;
+    }
 }
 
 /**************************************************************************************

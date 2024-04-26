@@ -132,7 +132,15 @@ class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterfac
         virtual bool ISNewSwitch(const char *dev, const char *name, ISState *states, char *names[], int n) override;
      
         const char *getDefaultName() override;
-        
+
+        // Focuser Overrides
+        virtual IPState MoveAbsFocuser(uint32_t targetTicks) override;
+        virtual IPState MoveRelFocuser(FocusDirection dir, uint32_t ticks) override;
+        virtual bool ReverseFocuser(bool enabled);
+        virtual bool AbortFocuser();
+        virtual bool SyncFocuser(uint32_t ticks) override;
+        virtual bool SetFocuserMaxPosition(uint32_t ticks) override;
+      
         virtual void TimerHit();
         virtual bool saveConfigItems(FILE *fp);
         
