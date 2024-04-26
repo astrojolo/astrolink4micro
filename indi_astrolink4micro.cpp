@@ -628,11 +628,8 @@ const char *AstroLink4micro::getDefaultName()
 bool AstroLink4micro::saveConfigItems(FILE *fp)
 {
 	IUSaveConfigText(fp, &RelayLabelsTP);
-	//~ IUSaveConfigSwitch(fp, &Switch1SP);
-	//~ IUSaveConfigSwitch(fp, &Switch2SP);
-	//~ IUSaveConfigSwitch(fp, &Switch3SP);
-	//~ IUSaveConfigNumber(fp, &PWM1NP);
-	//~ IUSaveConfigNumber(fp, &PWM2NP);
+	IUSaveConfigNumber(fp, &PWM1NP);
+	IUSaveConfigNumber(fp, &PWM2NP);
 
 	FI::saveConfigItems(fp);
 	WI::saveConfigItems(fp);
