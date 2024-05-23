@@ -177,6 +177,9 @@ class AstroLink4micro : public INDI::DefaultDevice, public INDI::FocuserInterfac
             FS1_COMP_THRESHOLD
         };        
         
+        INumber SQMOffsetN[1];
+        INumberVectorProperty SQMOffsetNP;
+        
         ISwitch Focuser1ModeS[3];
         ISwitchVectorProperty Focuser1ModeSP;
         enum

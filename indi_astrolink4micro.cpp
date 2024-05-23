@@ -95,6 +95,8 @@ bool AstroLink4micro::initProperties()
 	IUFillText(&RelayLabelsT[LAB_PWM1], "LAB_PWM1", "PWM 1", "PWM 1");
 	IUFillText(&RelayLabelsT[LAB_PWM2], "LAB_PWM2", "PWM 2", "PWM 2");
 	IUFillTextVector(&RelayLabelsTP, RelayLabelsT, 5, getDeviceName(), "RELAYLABELS", "Relay Labels", OPTIONS_TAB, IP_RW, 60, IPS_IDLE);    
+	IUFillNumber(&SQMOffsetN[0], "SQMOffset", "mag/arcsec2", "%0.2f", -1, 1, 0.01, 0);
+	IUFillNumberVector(&SQMOffsetNP, SQMOffsetN, 1, getDeviceName(), "SQMOFFSET", "SQM calibration", OPTIONS_TAB, IP_RW, 60, IPS_IDLE);    
     
 	// Load options before connecting
 	// load config before defining switches
@@ -120,9 +122,12 @@ bool AstroLink4micro::initProperties()
 	IUFillNumberVector(&PWM2NP, PWM2N, 1, getDeviceName(), "PWMOUT2", RelayLabelsT[LAB_PWM2].text, POWER_TAB, IP_RW, 60, IPS_IDLE);    
     
     // Environment Group
-    addParameter("WEATHER_TEMPERATURE", "Temperature (C)", -15, 35, 15);
-    addParameter("WEATHER_HUMIDITY", "Humidity %", 0, 100, 15);
-    addParameter("WEATHER_DEWPOINT", "Dew Point (C)", 0, 100, 15);    
+	addParameter("WEATHER_TEMPERATURE", "Temperature [C]", -15, 35, 15);
+	addParameter("WEATHER_HUMIDITY", "Humidity %", 0, 100, 15);
+	addParameter("WEATHER_DEWPOINT", "Dew Point [C]", -25, 20, 15);
+	addParameter("WEATHER_SKY_TEMP", "Sky temperature [C]", -50, 20, 20);
+	addParameter("WEATHER_SKY_DIFF", "Temperature difference [C]", -5, 40, 10);
+	addParameter("SQM_READING", "Sky brightness [mag/arcsec2]", 10, 25, 15);
 
     return true;    
 }
@@ -143,10 +148,12 @@ bool AstroLink4micro::updateProperties()
 		defineProperty(&Switch1SP);
 		defineProperty(&Switch2SP);            
 		defineProperty(&Switch3SP);            
-        defineProperty(&PowerDataNP);       
+        defineProperty(&PowerDataNP);   
+        defineProperty(&SQMOffsetNP);    
     }
     else
     {
+        deleteProperty(SQMOffsetNP.name);
         deleteProperty(PowerDataNP.name);
         deleteProperty(Focuser1ModeSP.name);
         deleteProperty(Focuser1SettingsNP.name);
@@ -201,7 +208,18 @@ bool AstroLink4micro::ISNewNumber(const char *dev, const char *name, double valu
                 IUUpdateNumber(&PWM2NP, values, names, n);
             IDSetNumber(&PWM2NP, nullptr);
             return true;
-        }                
+        }              
+        
+        // SQM calibration
+        if (!strcmp(name, SQMOffsetNP.name))
+        {
+            SQMOffsetNP.s = IPS_BUSY;
+            IUUpdateNumber(&SQMOffsetNP, values, names, n);
+            SQMOffsetNP.s = IPS_OK;
+            IDSetNumber(&SQMOffsetNP, nullptr);
+            return true;
+        }            
+          
         // Focuser settings
         if (!strcmp(name, Focuser1SettingsNP.name))
         {
@@ -435,6 +453,31 @@ bool AstroLink4micro::readDevice()
                 setParameterValue("WEATHER_HUMIDITY", std::stod(result[Q_SENS1_HUM]));
                 setParameterValue("WEATHER_DEWPOINT", std::stod(result[Q_SENS1_DEW]));
             }
+            else
+            {
+                setParameterValue("WEATHER_TEMPERATURE", 0.0);
+                setParameterValue("WEATHER_HUMIDITY", 0.0);
+                setParameterValue("WEATHER_DEWPOINT", 0.0);
+                
+            }
+            if (std::stoi(result[Q_MLX_PRESENT]) > 0)
+            {
+                setParameterValue("WEATHER_SKY_TEMP", std::stod(result[Q_MLX_TEMP]));
+                setParameterValue("WEATHER_SKY_DIFF", std::stod(result[Q_MLX_TEMP]) - std::stod(result[Q_MLX_AUX]));     
+            }
+            else
+            {
+                setParameterValue("WEATHER_SKY_TEMP", 0.0);
+                setParameterValue("WEATHER_SKY_DIFF", 0.0);              
+            }
+            if (std::stoi(result[Q_SBM_PRESENT]) > 0)
+            {
+                setParameterValue("SQM_READING", std::stod(result[Q_SBM]) + SQMOffsetN[0].value);
+            }
+            else
+            {
+                setParameterValue("SQM_READING", 0.0);
+            }
 
             if (Switch1SP.s != IPS_OK || Switch2SP.s != IPS_OK || Switch3SP.s != IPS_OK)
             {
@@ -630,6 +673,7 @@ bool AstroLink4micro::saveConfigItems(FILE *fp)
 	IUSaveConfigText(fp, &RelayLabelsTP);
 	IUSaveConfigNumber(fp, &PWM1NP);
 	IUSaveConfigNumber(fp, &PWM2NP);
+    IUSaveConfigNumber(fp, &SQMOffsetNP);
 
 	FI::saveConfigItems(fp);
 	WI::saveConfigItems(fp);
