@@ -248,8 +248,8 @@ bool AstroLink4micro::ISNewNumber(const char *dev, const char *name, double valu
         
         if (strstr(name, "FOCUS_"))
             return FI::processNumber(dev, name, values, names, n);
-        if (strstr(name, "WEATHER_"))
-            return WI::processNumber(dev, name, values, names, n);                 
+        // if (strstr(name, "WEATHER_"))
+            // return WI::processNumber(dev, name, values, names, n);                 
     }
     return INDI::DefaultDevice::ISNewNumber(dev, name, values, names, n);
 }
