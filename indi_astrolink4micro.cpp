@@ -555,8 +555,8 @@ bool AstroLink4micro::readDevice()
             }
             if (FocusReverseSP.getState() != IPS_OK)
             {
-                FocusReverseS[0].setState((std::stoi(result[U_FOC1_REV]) > 0) ? ISS_ON : ISS_OFF);
-                FocusReverseS[1].setState((std::stoi(result[U_FOC1_REV]) == 0) ? ISS_ON : ISS_OFF);
+                FocusReverseSP[0].setState((std::stoi(result[U_FOC1_REV]) > 0) ? ISS_ON : ISS_OFF);
+                FocusReverseSP[1].setState((std::stoi(result[U_FOC1_REV]) == 0) ? ISS_ON : ISS_OFF);
                 FocusReverseSP.setState(IPS_OK);
                 FocusReverseSP.apply();
             }
