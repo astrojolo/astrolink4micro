@@ -433,17 +433,19 @@ bool AstroLink4micro::readDevice()
         int focuserPosition = std::stoi(result[Q_FOC1_POS]);
         int stepsToGo = std::stoi(result[Q_FOC1_TO_GO]);
         
-        FocusAbsPosN[0].value = focuserPosition;
+        FocusAbsPosNP[0].setValue(focuserPosition);
         if (stepsToGo == 0)
         {
-            FocusAbsPosNP.s = FocusRelPosNP.s = IPS_OK;
-            IDSetNumber(&FocusRelPosNP, nullptr);
+            FocusAbsPosNP.setState(IPS_OK);
+            FocusRelPosNP.setState(IPS_OK);
         }
         else
         {
-            FocusAbsPosNP.s = FocusRelPosNP.s = IPS_BUSY;
+            FocusAbsPosNP.setState(IPS_BUSY);
+            FocusRelPosNP.setState(IPS_BUSY);
         }
-        IDSetNumber(&FocusAbsPosNP, nullptr);
+        FocusAbsPosNP.apply();
+        FocusRelPosNP.apply();
 
         if (result.size() > 5)
         {
@@ -512,7 +514,7 @@ bool AstroLink4micro::readDevice()
     }
     
     // update settings data if was changed
-    if (FocusMaxPosNP.s != IPS_OK || FocusReverseSP.s != IPS_OK || Focuser1SettingsNP.s != IPS_OK || Focuser1ModeSP.s != IPS_OK)
+    if (FocusMaxPosNP.getState() != IPS_OK || FocusReverseSP.getState() != IPS_OK || Focuser1SettingsNP.s != IPS_OK || Focuser1ModeSP.s != IPS_OK)
     {
         if (sendCommand("u", res))
         {
@@ -545,18 +547,18 @@ bool AstroLink4micro::readDevice()
                 IDSetSwitch(&Focuser1ModeSP, nullptr);
             }
 
-            if (FocusMaxPosNP.s != IPS_OK)
+            if (FocusMaxPosNP.getState() != IPS_OK)
             {
-                FocusMaxPosN[0].value = std::stoi(result[U_FOC1_MAX]);
-                FocusMaxPosNP.s = IPS_OK;
-                IDSetNumber(&FocusMaxPosNP, nullptr);
+                FocusMaxPosNP[0].setValue(std::stoi(result[U_FOC1_MAX]));
+                FocusMaxPosNP.setState(IPS_OK);
+                FocusMaxPosNP.apply();
             }
-            if (FocusReverseSP.s != IPS_OK)
+            if (FocusReverseSP.getState() != IPS_OK)
             {
-                FocusReverseS[0].s = (std::stoi(result[U_FOC1_REV]) > 0) ? ISS_ON : ISS_OFF;
-                FocusReverseS[1].s = (std::stoi(result[U_FOC1_REV]) == 0) ? ISS_ON : ISS_OFF;
-                FocusReverseSP.s = IPS_OK;
-                IDSetSwitch(&FocusReverseSP, nullptr);
+                FocusReverseSP[0].setState((std::stoi(result[U_FOC1_REV]) > 0) ? ISS_ON : ISS_OFF);
+                FocusReverseSP[1].setState((std::stoi(result[U_FOC1_REV]) == 0) ? ISS_ON : ISS_OFF);
+                FocusReverseSP.setState(IPS_OK);
+                FocusReverseSP.apply();
             }
         }
     }
@@ -610,7 +612,7 @@ IPState AstroLink4micro::MoveAbsFocuser(uint32_t targetTicks)
 
 IPState AstroLink4micro::MoveRelFocuser(FocusDirection dir, uint32_t ticks)
 {
-    return MoveAbsFocuser(dir == FOCUS_INWARD ? FocusAbsPosN[0].value - ticks : FocusAbsPosN[0].value + ticks);
+    return MoveAbsFocuser(dir == FOCUS_INWARD ? FocusAbsPosNP[0].getValue() - ticks : FocusAbsPosNP[0].getValue() + ticks);
 }
 
 bool AstroLink4micro::AbortFocuser()
@@ -623,7 +625,7 @@ bool AstroLink4micro::ReverseFocuser(bool enabled)
 {
     if (updateSettings("u", "U", U_FOC1_REV, (enabled) ? "1" : "0"))
     {
-        FocusReverseSP.s = IPS_BUSY;
+        FocusReverseSP.setState(IPS_BUSY);
         return true;
     }
     else
@@ -638,7 +640,7 @@ bool AstroLink4micro::SyncFocuser(uint32_t ticks)
     snprintf(cmd, ASTROLINK4_LEN, "P:%i:%u", 0, ticks);
     if (sendCommand(cmd, res))
     {
-        FocusAbsPosNP.s = IPS_BUSY;
+        FocusAbsPosNP.setState(IPS_BUSY);
         return true;
     }
     else
@@ -651,7 +653,7 @@ bool AstroLink4micro::SetFocuserMaxPosition(uint32_t ticks)
 {
     if (updateSettings("u", "U", U_FOC1_MAX, std::to_string(ticks).c_str()))
     {
-        FocusMaxPosNP.s = IPS_BUSY;
+        FocusMaxPosNP.setState(IPS_BUSY);
         return true;
     }
     else
