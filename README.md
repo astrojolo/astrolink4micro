@@ -2,11 +2,6 @@
 
 # AstroLink 4 micro
 
-![Compact Size](https://img.shields.io/badge/Size-15×5cm_Compact-lightgrey)  
-![ASCOM & INDI Drivers](https://img.shields.io/badge/Drivers-ASCOM%20%7C%20INDI-blue)  
-![Dew & Power Outputs](https://img.shields.io/badge/Outputs-12V%20%7C%20PWM-orange)  
-![Environmental Sensors](https://img.shields.io/badge/Sensors-Temp%2FHumidity%2FSkyBrightness-green)
-
 ---
 
 ## Overview  
